@@ -27,12 +27,12 @@ def load_setting(setting_name, session_name, default_value=""):
             st.session_state[session_name] = default_value
 
 
-load_setting("AZURE_OPENAI_CHATGPT_DEPLOYMENT", "chatgpt", "gpt-35-turbo")
-load_setting("AZURE_OPENAI_GPT4_DEPLOYMENT", "gpt4", "gpt-35-turbo")
-load_setting(
-    "AZURE_OPENAI_ENDPOINT", "endpoint", "https://resourcenamehere.openai.azure.com/"
-)
-load_setting("AZURE_OPENAI_API_KEY", "apikey")
+load_setting("AZURE_OPENAI_CHATGPT_DEPLOYMENT", "chatgpt", "gpt-3.5-turbo")
+load_setting("AZURE_OPENAI_GPT4_DEPLOYMENT", "gpt4", "gpt-4")
+# load_setting(
+#     "AZURE_OPENAI_ENDPOINT", "endpoint", "https://resourcenamehere.openai.azure.com/"
+# )
+# load_setting("AZURE_OPENAI_API_KEY", "apikey")
 load_setting("SNOW_ACCOUNT", "snowaccount")
 load_setting("SNOW_USER", "snowuser")
 load_setting("SNOW_PASSWORD", "snowpassword")
@@ -46,10 +46,10 @@ if "show_settings" not in st.session_state:
 
 
 def saveOpenAI():
-    st.session_state.chatgpt = st.session_state.txtChatGPT
-    st.session_state.gpt4 = st.session_state.txtGPT4
-    st.session_state.endpoint = st.session_state.txtEndpoint
-    st.session_state.apikey = st.session_state.txtAPIKey
+    st.session_state.chatgpt = "gpt-3.5-turbo"
+    st.session_state.gpt4 = "gpt-4"
+    # st.session_state.endpoint = st.session_state.txtEndpoint
+    # st.session_state.apikey = st.session_state.txtAPIKey
     st.session_state.snowaccount = st.session_state.txtSNOWAccount
     st.session_state.snowuser = st.session_state.txtSNOWUser
     st.session_state.snowpassword = st.session_state.txtSNOWPasswd
@@ -59,19 +59,19 @@ def saveOpenAI():
     st.session_state.snowwarehouse = st.session_state.txtSNOWWarehouse
 
     # We can close out the settings now
-    st.session_state["show_settings"] = False
+    st.session_state["show_settings"] = True
 
 
 def toggleSettings():
     st.session_state["show_settings"] = not st.session_state["show_settings"]
 
 
-openai.api_type = "azure"
-openai.api_version = "2023-03-15-preview"
-openai.api_key = st.session_state.apikey
-openai.api_base = st.session_state.endpoint
+# openai.api_type = "azure"
+# openai.api_version = "2023-03-15-preview"
+# openai.api_key = st.session_state.apikey
+# openai.api_base = st.session_state.endpoint
 max_response_tokens = 1500
-token_limit = 6000
+token_limit = 4097
 temperature = 0.2
 
 st.set_page_config(
@@ -94,7 +94,7 @@ st.markdown(
 
 st.markdown(
     """# **Snowflake OpenAI Assistant**
-This is an experimental assistant that requires Azure OpenAI access. The app demonstrates the use of OpenAI to support getting insights from Snowflake by just asking questions. The assistant can also generate SQL and Python code for the Questions.
+これはOpenAIアクセスを必要とする実験的なアシスタントです。このアプリは、質問をするだけでSnowflakeから洞察を得るためにOpenAIを使用する方法を示しています。アシスタントはまた、質問に対してSQLとPythonのコードも生成することができます。
 """
 )
 
@@ -126,7 +126,7 @@ text-align: center;
 }
 </style>
 <div class="footer">
-<p>Developed with ❤ for ❄ </p>
+<p>Developed with ❤ by <a style='text-align: center;' href="https://www.shankarnarayanan.com/" target="_blank">Shankar Narayanan SGS</a> for ❄ </p>
 </div>
 """
 
@@ -147,6 +147,8 @@ with st.sidebar:
         Never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
         You MUST double check your query before executing it. If you get an error while executing a query, rewrite the query and try again.
         DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+        Table names in SQL should be enclosed in double quotes. ex. ... FROM SOURCE_SCHEMA."AY13A_過去UQM契約情報"
+        Column names in SQL should be enclosed in double quotes.
         Remember to format SQL query as in ```sql\n SQL QUERY HERE ``` in your response.
 
         """
@@ -156,11 +158,8 @@ with st.sidebar:
 
         faq_dict = {
             "ChatGPT": [
-                "Show me revenue by product in ascending order",
-                "Show me top 10 most expensive products",
-                "Show me net revenue by year. Revenue time is based on shipped date.",
-                "For each category, get the list of products sold and the total sales amount",
-                "Find Quarterly Orders by Product. First column is Product Name, then year then four other columns, each for a quarter. The amount is order amount after discount",
+                "データセットの中身を簡単に説明してください。",
+                "データセットから10件クエリしてください。"
             ],
             "GPT-4": [
                 "Pick top 20 customers generated most revenue in 1998 and for each customer show 3 products that they purchased most",
@@ -188,7 +187,7 @@ with st.sidebar:
         few_shot_examples = """
         <<Template>>
         Question: User Question
-        Thought 1: Your thought here.
+        思考 1: Your thought here.
         Action: 
         ```python
         #Import neccessary libraries here
@@ -203,7 +202,7 @@ with st.sidebar:
         ```
         Observation: 
         step1_df is displayed here
-        Thought 2: Your thought here
+        思考 2: Your thought here
         Action:  
         ```python
         import plotly.express as px 
@@ -225,17 +224,14 @@ with st.sidebar:
         """
 
         extract_patterns = [
-            ("Thought:", r"(Thought \d+):\s*(.*?)(?:\n|$)"),
+            ("Thought:", r"(思考 \d+):\s*(.*?)(?:\n|$)"),
             ("Action:", r"```python\n(.*?)```"),
             ("Answer:", r"([Aa]nswer:) (.*)"),
         ]
         extractor = ChatGPT_Handler(extract_patterns=extract_patterns)
         faq_dict = {
             "ChatGPT": [
-                "Show me daily revenue trends in 1996 per region",
-                "Is that true that top 20% customers generate 80% revenue from 1996 to 1998? What's their percentage of revenue contribution?",
-                "Which products have most seasonality in sales quantity in 1998?",
-                "Which customers are most likely to churn in 1997?",
+                "データセット内のテーブルを組み合わせるとどんな分析ができますか"
             ],
             "GPT-4": [
                 "Predict monthly revenue for next 6 months starting from May-1998. Do not use Prophet.",
@@ -247,28 +243,28 @@ with st.sidebar:
     if st.session_state["show_settings"]:
         with st.form("AzureOpenAI"):
             st.title("Azure OpenAI Settings")
-            st.text_input(
-                "ChatGPT deployment name:",
-                key="txtChatGPT",
-                help="Enter the name of ChatGPT deployment from Azure OpenAI",
-            )
-            st.text_input(
-                "GPT-4 deployment name",
-                key="txtGPT4",
-                help="Enter the GPT-4 deployment in Azure OpenAI. Defaults to above value if not specified",
-            )
-            st.text_input(
-                "Azure OpenAI Endpoint:",
-                key="txtEndpoint",
-                help="Enter the Azure Open AI Endpoint",
-                placeholder="https://<endpointname>.openai.azure.com/",
-            )
-            st.text_input(
-                "Azure OpenAI Key:",
-                type="password",
-                key="txtAPIKey",
-                help="Enter Azure OpenAI Key",
-            )
+            # st.text_input(
+            #     "ChatGPT deployment name:",
+            #     key="txtChatGPT",
+            #     help="Enter the name of ChatGPT deployment from Azure OpenAI",
+            # )
+            # st.text_input(
+            #     "GPT-4 deployment name",
+            #     key="txtGPT4",
+            #     help="Enter the GPT-4 deployment in Azure OpenAI. Defaults to above value if not specified",
+            # )
+            # st.text_input(
+            #     "Azure OpenAI Endpoint:",
+            #     key="txtEndpoint",
+            #     help="Enter the Azure Open AI Endpoint",
+            #     placeholder="https://<endpointname>.openai.azure.com/",
+            # )
+            # st.text_input(
+            #     "Azure OpenAI Key:",
+            #     type="password",
+            #     key="txtAPIKey",
+            #     help="Enter Azure OpenAI Key",
+            # )
 
             st.title("Snowflake Settings")
             st.text_input(
@@ -286,11 +282,13 @@ with st.sidebar:
                 key="txtSNOWPasswd",
                 help="Enter Snowflake Password",
             )
-            st.text_input("Role:", key="txtSNOWRole", help="Enter Snowflake role")
+            st.text_input("Role:", key="txtSNOWRole",
+                          help="Enter Snowflake role")
             st.text_input(
                 "Database:", key="txtSNOWDatabase", help="Enter Snowflake Database"
             )
-            st.text_input("Schema:", key="txtSNOWSchema", help="Enter Snowflake Schema")
+            st.text_input("Schema:", key="txtSNOWSchema",
+                          help="Enter Snowflake Schema")
             st.text_input(
                 "Warehouse:", key="txtSNOWWarehouse", help="Enter Snowflake Warehouse"
             )
@@ -318,9 +316,7 @@ with st.sidebar:
 
     if st.button("Submit"):
         if (
-            st.session_state.apikey == ""
-            or st.session_state.endpoint == ""
-            or st.session_state.chatgpt == ""
+            st.session_state.chatgpt == ""
         ):
             st.error("You need to specify Azure Open AI Deployment Settings!")
         elif (

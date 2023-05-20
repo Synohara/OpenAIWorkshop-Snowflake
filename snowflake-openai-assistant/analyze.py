@@ -22,49 +22,29 @@ def get_table_schema(sql_query_tool, db_schema=None):
         SELECT C.TABLE_NAME, C.COLUMN_NAME, C.DATA_TYPE, T.TABLE_TYPE, T.TABLE_SCHEMA  
         FROM INFORMATION_SCHEMA.COLUMNS C  
         JOIN INFORMATION_SCHEMA.TABLES T ON C.TABLE_NAME = T.TABLE_NAME AND C.TABLE_SCHEMA = T.TABLE_SCHEMA  
-        WHERE T.TABLE_SCHEMA = '{db_schema}';
+        WHERE T.TABLE_SCHEMA = '{db_schema}' AND T.TABLE_NAME != 'CM_CONTEST' AND T.TABLE_NAME != 'SPOT_CONTEST';
         """
     else:
         sql_query = f"""  
         SELECT C.TABLE_NAME, C.COLUMN_NAME, C.DATA_TYPE, T.TABLE_TYPE, T.TABLE_SCHEMA  
         FROM INFORMATION_SCHEMA.COLUMNS C  
         JOIN INFORMATION_SCHEMA.TABLES T ON C.TABLE_NAME = T.TABLE_NAME AND C.TABLE_SCHEMA = T.TABLE_SCHEMA  
-        WHERE T.TABLE_SCHEMA != 'INFORMATION_SCHEMA';
+        WHERE T.TABLE_SCHEMA != 'INFORMATION_SCHEMA' AND T.TABLE_NAME != 'CM_CONTEST' AND T.TABLE_NAME != 'SPOT_CONTEST';
         """
 
     # Execute the SQL query and store the results in a DataFrame
     df = sql_query_tool.execute_sql_query(sql_query, limit=None)
     print(df)
     output = []
-    # Initialize variables to store table and column information
-    current_table = ""
-    columns = []
+    for table_name, group in df.groupby('table_name'):
+        output.append(f"Table: {table_name}")
+        for i, r in group.iterrows():
+            output.append(f"Coulumn:{r['column_name']} Type:{r['data_type']}")
 
-    # Loop through the query results and output the table and column information
-    for index, row in df.iterrows():
-        table_name = f"{row['table_schema']}.{row['table_name']}"
-        column_name = row["column_name"]
-        data_type = row["data_type"]
-        if " " in table_name:
-            table_name = f"[{table_name}]"
-        column_name = row["column_name"]
-        if " " in column_name:
-            column_name = f"[{column_name}]"
-
-        # If the table name has changed, output the previous table's information
-        if current_table != table_name and current_table != "":
-            output.append(f"table: {current_table}, columns: {', '.join(columns)}")
-            columns = []
-
-        # Add the current column information to the list of columns for the current table
-        columns.append(f"{column_name} {data_type}")
-
-        # Update the current table name
-        current_table = table_name
-
-    # Output the last table's information
-    output.append(f"table: {current_table}, columns: {', '.join(columns)}")
     output = "\n ".join(output)
+
+    print(output)
+
     return output
 
 
@@ -85,7 +65,7 @@ class ChatGPT_Handler:  # designed for chat completion API
 
     def _call_llm(self, prompt, stop):
         response = openai.ChatCompletion.create(
-            engine=self.gpt_deployment,
+            model=self.gpt_deployment,
             messages=prompt,
             temperature=self.temperature,
             max_tokens=self.max_response_tokens,
@@ -118,7 +98,8 @@ class ChatGPT_Handler:  # designed for chat completion API
 
                 if text_before is not None and len(text_before) > 0:
                     output["text_before"] = text_before
-                text_after = text_input.split(sql_query)[1].strip("\n").strip("```")
+                text_after = text_input.split(
+                    sql_query)[1].strip("\n").strip("```")
                 if text_after is not None and len(text_after) > 0:
                     output["text_after"] = text_after
                 return output
@@ -201,7 +182,8 @@ class AnalyzeGPT(ChatGPT_Handler):
         {system_message.format()}
         {few_shot_examples}
         """
-        self.conversation_history = [{"role": "system", "content": system_message}]
+        self.conversation_history = [
+            {"role": "system", "content": system_message}]
         self.st = st
         self.content_extractor = content_extractor
         self.sql_query_tool = sql_query_tool
@@ -222,7 +204,8 @@ class AnalyzeGPT(ChatGPT_Handler):
             time.sleep(8)  # sleep for 8 seconds
             while n < 5:
                 try:
-                    llm_output = self._call_llm(self.conversation_history, stop)
+                    llm_output = self._call_llm(
+                        self.conversation_history, stop)
                 except Exception as e:
                     n += 1
                     print(
@@ -308,10 +291,12 @@ class AnalyzeGPT(ChatGPT_Handler):
                         for key in self.st.session_state.keys():
                             if "observation:" in key:
                                 observation = self.st.session_state[key]
-                                observations.append((key.split(":")[1], observation))
+                                observations.append(
+                                    (key.split(":")[1], observation))
                                 if type(observation) is pd:
                                     serialized_obs.append(
-                                        (key.split(":")[1], observation.to_string())
+                                        (key.split(":")[1],
+                                         observation.to_string())
                                     )
 
                                 elif type(observation) is not Figure:
@@ -322,7 +307,8 @@ class AnalyzeGPT(ChatGPT_Handler):
                     except Exception as e:
                         observations.append(("Error:", str(e)))
                         serialized_obs.append(
-                            {"Encounter following error, can you try again?\n:": str(e)}
+                            {"Encounter following error, can you try again?\n:": str(
+                                e)}
                         )
 
                     for observation in observations:
@@ -387,7 +373,8 @@ class AnalyzeGPT(ChatGPT_Handler):
                         output = execute_sql(value)
                     except Exception as e:
                         new_input += (
-                            "Encounter following error, can you try again?\n" + str(e)
+                            "Encounter following error, can you try again?\n" +
+                            str(e)
                         )
                         error = str(e)
                 else:
